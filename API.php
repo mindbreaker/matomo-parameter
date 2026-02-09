@@ -15,22 +15,16 @@ use Piwik\Piwik;
 class API extends \Piwik\Plugin\API
 {
     /**
-     * Returns a DataTable of all URL query parameters with the number of
-     * pageviews they appeared in.
-     *
-     * Each row has a subtable containing the individual parameter values
-     * and their respective hit counts.
+     * Returns a flat DataTable of all URL query parameter=value combinations
+     * with the number of pageviews they appeared in.
      *
      * @param int          $idSite
      * @param string       $period
      * @param string       $date
      * @param string|false $segment
-     * @param bool         $expanded
-     * @param int|false    $idSubtable
-     * @param bool         $flat
      * @return \Piwik\DataTable
      */
-    public function getUrlParameters($idSite, $period, $date, $segment = false, $expanded = false, $idSubtable = false, $flat = false)
+    public function getUrlParameters($idSite, $period, $date, $segment = false)
     {
         Piwik::checkUserHasViewAccess($idSite);
 
@@ -39,10 +33,7 @@ class API extends \Piwik\Plugin\API
             $idSite,
             $period,
             $date,
-            $segment,
-            $expanded,
-            $flat,
-            $idSubtable
+            $segment
         );
     }
 }
