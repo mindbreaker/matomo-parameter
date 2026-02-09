@@ -13,7 +13,6 @@ use Piwik\Common;
 use Piwik\DataTable;
 use Piwik\DataTable\Row;
 use Piwik\Db;
-use Piwik\Tracker\Action;
 
 class Archiver extends \Piwik\Plugin\Archiver
 {
@@ -21,9 +20,9 @@ class Archiver extends \Piwik\Plugin\Archiver
 
     public function aggregateDayReport()
     {
-        $params = $this->getLogAggregator()->getParams();
-        $startDate = $params->getDateStart()->getDateStartUTC();
-        $endDate = $params->getDateEnd()->getDateEndUTC();
+        $params = $this->getProcessor()->getParams();
+        $startDate = $params->getDateStart()->getDatetime();
+        $endDate = $params->getDateEnd()->addDay(1)->getDatetime();
         $idSite = $params->getSite()->getId();
 
         $sql = "SELECT
@@ -35,7 +34,7 @@ class Archiver extends \Piwik\Plugin\Archiver
                 WHERE log_link_visit_action.server_time >= ?
                     AND log_link_visit_action.server_time < ?
                     AND log_link_visit_action.idsite = ?
-                    AND log_action.type = " . Action::TYPE_PAGE_URL . "
+                    AND log_action.name LIKE '%?%'
                 GROUP BY log_action.idaction";
 
         $rows = Db::fetchAll($sql, [$startDate, $endDate, $idSite]);
@@ -60,7 +59,7 @@ class Archiver extends \Piwik\Plugin\Archiver
      * Extract URL parameters from query results.
      *
      * @param array $rows
-     * @return array Associative array: paramName => ['nb_hits' => int, 'values' => [value => hits]]
+     * @return array Associative array: 'paramName=value' => nb_hits
      */
     private function extractParameters(array $rows): array
     {
@@ -70,8 +69,20 @@ class Archiver extends \Piwik\Plugin\Archiver
             $url = $row['url'];
             $hits = (int) $row['nb_hits'];
 
-            $queryString = parse_url($url, PHP_URL_QUERY);
-            if (empty($queryString)) {
+            $pos = strpos($url, '?');
+            if ($pos === false) {
+                continue;
+            }
+
+            $queryString = substr($url, $pos + 1);
+
+            // Remove fragment if present
+            $hashPos = strpos($queryString, '#');
+            if ($hashPos !== false) {
+                $queryString = substr($queryString, 0, $hashPos);
+            }
+
+            if ($queryString === '' || $queryString === false) {
                 continue;
             }
 
@@ -85,19 +96,12 @@ class Archiver extends \Piwik\Plugin\Archiver
                 }
                 $paramValue = (string) $paramValue;
 
-                if (!isset($parameterData[$paramName])) {
-                    $parameterData[$paramName] = [
-                        'nb_hits' => 0,
-                        'values' => [],
-                    ];
-                }
+                $label = $paramName . '=' . $paramValue;
 
-                $parameterData[$paramName]['nb_hits'] += $hits;
-
-                if (!isset($parameterData[$paramName]['values'][$paramValue])) {
-                    $parameterData[$paramName]['values'][$paramValue] = 0;
+                if (!isset($parameterData[$label])) {
+                    $parameterData[$label] = 0;
                 }
-                $parameterData[$paramName]['values'][$paramValue] += $hits;
+                $parameterData[$label] += $hits;
             }
         }
 
@@ -120,33 +124,21 @@ class Archiver extends \Piwik\Plugin\Archiver
     }
 
     /**
-     * Build a DataTable with subtables from the extracted parameter data.
+     * Build a flat DataTable from the extracted parameter data.
      *
-     * @param array $parameterData
+     * @param array $parameterData 'paramName=value' => nb_hits
      * @return DataTable
      */
     private function buildDataTable(array $parameterData): DataTable
     {
         $table = new DataTable();
 
-        foreach ($parameterData as $paramName => $data) {
-            $subtable = new DataTable();
-
-            foreach ($data['values'] as $value => $valueHits) {
-                $subtable->addRow(new Row([
-                    Row::COLUMNS => [
-                        'label' => (string) $value,
-                        'nb_hits' => $valueHits,
-                    ],
-                ]));
-            }
-
+        foreach ($parameterData as $label => $hits) {
             $table->addRow(new Row([
                 Row::COLUMNS => [
-                    'label' => $paramName,
-                    'nb_hits' => $data['nb_hits'],
+                    'label' => $label,
+                    'nb_hits' => $hits,
                 ],
-                Row::DATATABLE_ASSOCIATED => $subtable,
             ]));
         }
 
