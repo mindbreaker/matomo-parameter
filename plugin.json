@@ -1,0 +1,15 @@
+{
+    "name": "UrlParameter",
+    "description": "Lists all URL query parameters and shows how often they appear in tracked page URLs.",
+    "version": "1.0.0",
+    "theme": false,
+    "require": {
+        "matomo": ">=4.0.0,<6.0.0-b1"
+    },
+    "authors": [
+        {
+            "name": "mindbreaker"
+        }
+    ],
+    "license": "GPL-3.0+"
+}
