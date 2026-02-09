@@ -22,8 +22,8 @@ class Archiver extends \Piwik\Plugin\Archiver
     public function aggregateDayReport()
     {
         $params = $this->getLogAggregator()->getParams();
-        $startDate = $params->getDateStart()->getDateStartUTC();
-        $endDate = $params->getDateEnd()->getDateEndUTC();
+        $startDate = $params->getDateStart()->getDatetime();
+        $endDate = $params->getDateEnd()->addDay(1)->getDatetime();
         $idSite = $params->getSite()->getId();
 
         $sql = "SELECT

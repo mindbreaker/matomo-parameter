@@ -10,7 +10,6 @@
 namespace Piwik\Plugins\UrlParameter;
 
 use Piwik\Archive;
-use Piwik\DataTable;
 use Piwik\Piwik;
 
 class API extends \Piwik\Plugin\API
@@ -22,22 +21,28 @@ class API extends \Piwik\Plugin\API
      * Each row has a subtable containing the individual parameter values
      * and their respective hit counts.
      *
-     * @param int    $idSite
-     * @param string $period
-     * @param string $date
+     * @param int          $idSite
+     * @param string       $period
+     * @param string       $date
      * @param string|false $segment
-     * @return DataTable
+     * @param bool         $expanded
+     * @param int|false    $idSubtable
+     * @param bool         $flat
+     * @return \Piwik\DataTable
      */
-    public function getUrlParameters($idSite, $period, $date, $segment = false)
+    public function getUrlParameters($idSite, $period, $date, $segment = false, $expanded = false, $idSubtable = false, $flat = false)
     {
         Piwik::checkUserHasViewAccess($idSite);
 
-        $archive = Archive::build($idSite, $period, $date, $segment);
-
-        $dataTable = $archive->getDataTable(Archiver::RECORD_NAME_PARAMETERS);
-        $dataTable->queueFilter('ReplaceColumnNames');
-        $dataTable->queueFilter('ReplaceSummaryRowLabel');
-
-        return $dataTable;
+        return Archive::createDataTableFromArchive(
+            Archiver::RECORD_NAME_PARAMETERS,
+            $idSite,
+            $period,
+            $date,
+            $segment,
+            $expanded,
+            $flat,
+            $idSubtable
+        );
     }
 }
