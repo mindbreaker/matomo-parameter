@@ -20,24 +20,19 @@ class Archiver extends \Piwik\Plugin\Archiver
 
     public function aggregateDayReport()
     {
-        $params = $this->getProcessor()->getParams();
-        $startDate = $params->getDateStart()->getDatetime();
-        $endDate = $params->getDateEnd()->addDay(1)->getDatetime();
-        $idSite = $params->getSite()->getId();
+        $from = Common::prefixTable('log_link_visit_action') . ' log_link_visit_action'
+            . ' JOIN ' . Common::prefixTable('log_action') . ' log_action'
+            . '   ON log_link_visit_action.idaction_url = log_action.idaction';
 
-        $sql = "SELECT
-                    log_action.name as url,
-                    COUNT(*) as nb_hits
-                FROM " . Common::prefixTable('log_link_visit_action') . " log_link_visit_action
-                JOIN " . Common::prefixTable('log_action') . " log_action
-                    ON log_link_visit_action.idaction_url = log_action.idaction
-                WHERE log_link_visit_action.server_time >= ?
-                    AND log_link_visit_action.server_time < ?
-                    AND log_link_visit_action.idsite = ?
-                    AND log_action.name LIKE '%?%'
-                GROUP BY log_action.idaction";
+        $query = $this->getLogAggregator()->generateQuery(
+            'log_action.name as url, count(*) as nb_hits',
+            $from,
+            '',
+            'log_action.idaction',
+            ''
+        );
 
-        $rows = Db::fetchAll($sql, [$startDate, $endDate, $idSite]);
+        $rows = Db::fetchAll($query['sql'], $query['bind']);
 
         $parameterData = $this->extractParameters($rows);
         $table = $this->buildDataTable($parameterData);
