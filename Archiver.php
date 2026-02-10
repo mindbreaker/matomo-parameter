@@ -9,9 +9,11 @@
 
 namespace Piwik\Plugins\UrlParameter;
 
+use Piwik\Common;
 use Piwik\DataTable;
 use Piwik\DataTable\Row;
 use Piwik\Db;
+use Piwik\Log\LoggerInterface;
 
 class Archiver extends \Piwik\Plugin\Archiver
 {
@@ -39,47 +41,59 @@ class Archiver extends \Piwik\Plugin\Archiver
         $orderBy = 'nb_hits DESC';
 
         $query = $logAggregator->generateQuery($select, $from, $where, $groupBy, $orderBy);
-        $resultSet = $logAggregator->getDb()->query($query['sql'], $query['bind']);
 
         $parameterData = [];
-        while ($row = $resultSet->fetch()) {
-            $url = $row['url'];
-            $hits = (int) $row['nb_hits'];
 
-            $pos = strpos($url, '?');
-            if ($pos === false) {
-                continue;
-            }
+        try {
+            $rows = Db::fetchAll($query['sql'], $query['bind']);
 
-            $queryString = substr($url, $pos + 1);
+            foreach ($rows as $row) {
+                $url = $row['url'];
+                if (empty($url)) {
+                    continue;
+                }
+                $hits = (int) $row['nb_hits'];
 
-            $hashPos = strpos($queryString, '#');
-            if ($hashPos !== false) {
-                $queryString = substr($queryString, 0, $hashPos);
-            }
-
-            if ($queryString === '' || $queryString === false) {
-                continue;
-            }
-
-            parse_str($queryString, $queryParams);
-
-            foreach ($queryParams as $paramName => $paramValue) {
-                if (is_array($paramValue)) {
-                    $flat = [];
-                    array_walk_recursive($paramValue, function ($v) use (&$flat) {
-                        $flat[] = $v;
-                    });
-                    $paramValue = implode(', ', $flat);
+                $pos = strpos($url, '?');
+                if ($pos === false) {
+                    continue;
                 }
 
-                $label = (string) $paramName . '=' . (string) $paramValue;
+                $queryString = substr($url, $pos + 1);
 
-                if (!isset($parameterData[$label])) {
-                    $parameterData[$label] = 0;
+                $hashPos = strpos($queryString, '#');
+                if ($hashPos !== false) {
+                    $queryString = substr($queryString, 0, $hashPos);
                 }
-                $parameterData[$label] += $hits;
+
+                if ($queryString === '' || $queryString === false) {
+                    continue;
+                }
+
+                parse_str($queryString, $queryParams);
+
+                foreach ($queryParams as $paramName => $paramValue) {
+                    if (is_array($paramValue)) {
+                        $flat = [];
+                        array_walk_recursive($paramValue, function ($v) use (&$flat) {
+                            $flat[] = $v;
+                        });
+                        $paramValue = implode(', ', $flat);
+                    }
+
+                    $label = (string) $paramName . '=' . (string) $paramValue;
+
+                    if (!isset($parameterData[$label])) {
+                        $parameterData[$label] = 0;
+                    }
+                    $parameterData[$label] += $hits;
+                }
             }
+        } catch (\Exception $e) {
+            $logger = \Piwik\Container\StaticContainer::get(LoggerInterface::class);
+            $logger->error('UrlParameter Archiver error: {exception}', [
+                'exception' => $e,
+            ]);
         }
 
         $table = new DataTable();
@@ -92,10 +106,8 @@ class Archiver extends \Piwik\Plugin\Archiver
             ]));
         }
 
-        $this->getProcessor()->insertBlobRecord(
-            self::RECORD_NAME_PARAMETERS,
-            $table->getSerialized(self::MAX_ROWS)
-        );
+        $serialized = $table->getSerialized(self::MAX_ROWS);
+        $this->getProcessor()->insertBlobRecord(self::RECORD_NAME_PARAMETERS, $serialized);
     }
 
     public function aggregateMultipleReports()
