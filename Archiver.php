@@ -9,7 +9,6 @@
 
 namespace Piwik\Plugins\UrlParameter;
 
-use Piwik\Common;
 use Piwik\DataTable;
 use Piwik\DataTable\Row;
 use Piwik\Db;
@@ -42,6 +41,7 @@ class Archiver extends \Piwik\Plugin\Archiver
 
         $query = $logAggregator->generateQuery($select, $from, $where, $groupBy, $orderBy);
 
+        // paramName => ['nb_hits' => int, 'values' => [value => hits]]
         $parameterData = [];
 
         try {
@@ -80,13 +80,21 @@ class Archiver extends \Piwik\Plugin\Archiver
                         });
                         $paramValue = implode(', ', $flat);
                     }
+                    $paramName = (string) $paramName;
+                    $paramValue = (string) $paramValue;
 
-                    $label = (string) $paramName . '=' . (string) $paramValue;
-
-                    if (!isset($parameterData[$label])) {
-                        $parameterData[$label] = 0;
+                    if (!isset($parameterData[$paramName])) {
+                        $parameterData[$paramName] = [
+                            'nb_hits' => 0,
+                            'values'  => [],
+                        ];
                     }
-                    $parameterData[$label] += $hits;
+                    $parameterData[$paramName]['nb_hits'] += $hits;
+
+                    if (!isset($parameterData[$paramName]['values'][$paramValue])) {
+                        $parameterData[$paramName]['values'][$paramValue] = 0;
+                    }
+                    $parameterData[$paramName]['values'][$paramValue] += $hits;
                 }
             }
         } catch (\Exception $e) {
@@ -97,16 +105,27 @@ class Archiver extends \Piwik\Plugin\Archiver
         }
 
         $table = new DataTable();
-        foreach ($parameterData as $label => $hits) {
+        foreach ($parameterData as $paramName => $data) {
+            $subtable = new DataTable();
+            foreach ($data['values'] as $value => $valueHits) {
+                $subtable->addRow(new Row([
+                    Row::COLUMNS => [
+                        'label'   => (string) $value,
+                        'nb_hits' => $valueHits,
+                    ],
+                ]));
+            }
+
             $table->addRow(new Row([
                 Row::COLUMNS => [
-                    'label' => $label,
-                    'nb_hits' => $hits,
+                    'label'   => $paramName,
+                    'nb_hits' => $data['nb_hits'],
                 ],
+                Row::DATATABLE_ASSOCIATED => $subtable,
             ]));
         }
 
-        $serialized = $table->getSerialized(self::MAX_ROWS);
+        $serialized = $table->getSerialized(self::MAX_ROWS, self::MAX_ROWS);
         $this->getProcessor()->insertBlobRecord(self::RECORD_NAME_PARAMETERS, $serialized);
     }
 
@@ -114,6 +133,7 @@ class Archiver extends \Piwik\Plugin\Archiver
     {
         $this->getProcessor()->aggregateDataTableRecords(
             [self::RECORD_NAME_PARAMETERS],
+            self::MAX_ROWS,
             self::MAX_ROWS
         );
     }

@@ -1,7 +1,8 @@
 {
     "UrlParameter": {
         "UrlParameters": "URL-Parameter",
-        "ParameterValue": "Parameter=Wert",
-        "ReportDocumentation": "Dieser Bericht zeigt alle Query-String-Parameter=Wert-Kombinationen aus getrackten Seiten-URLs und wie oft jede Kombination vorkommt."
+        "ParameterName": "Parametername",
+        "ParameterValue": "Parameterwert",
+        "ReportDocumentation": "Dieser Bericht zeigt alle Query-String-Parameter aus getrackten Seiten-URLs und wie oft jeder Parameter vorkommt. Klicken Sie auf einen Parameter, um dessen einzelne Werte zu sehen."
     }
 }

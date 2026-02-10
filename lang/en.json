@@ -1,7 +1,8 @@
 {
     "UrlParameter": {
         "UrlParameters": "URL Parameters",
-        "ParameterValue": "Parameter=Value",
-        "ReportDocumentation": "This report shows all query string parameter=value combinations found in tracked page URLs and how often each combination appears."
+        "ParameterName": "Parameter Name",
+        "ParameterValue": "Parameter Value",
+        "ReportDocumentation": "This report shows all query string parameters found in tracked page URLs and how often each parameter appears. Click on a parameter to see its individual values."
     }
 }
